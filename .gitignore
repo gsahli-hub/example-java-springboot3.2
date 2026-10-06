@@ -8,3 +8,7 @@ target/
 mvnw
 mvnw.cmd
 .DS_Store
+
+trivy-sca.json
+gitleaks-report.json
+semgrep-report.json
