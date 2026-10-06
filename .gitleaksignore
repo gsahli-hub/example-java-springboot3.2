@@ -1,0 +1,4 @@
+# Exemption Gitleaks - decision documentee
+# Motif : cle fictive de test, ajoutee volontairement pour demontrer la detection
+# Valide par : Ghofrane - 06/10/2026
+777f17982b44ea7e6b41c6d3db636df7e30f61d4:src/main/resources/application.properties:generic-api-key:17

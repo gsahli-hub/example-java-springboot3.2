@@ -16,8 +16,10 @@ jobs:
       - name: Gitleaks
         run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect \
-            --source /repo --report-format json \
-            --report-path /repo/gitleaks-report.json --exit-code 1
+          --source /repo --verbose \
+          --gitleaks-ignore-path /repo/.gitleaksignore \
+          --report-format json \
+          --report-path /repo/gitleaks-report.json --exit-code 1
       - name: Publier le rapport
         if: always()
         uses: actions/upload-artifact@v4
