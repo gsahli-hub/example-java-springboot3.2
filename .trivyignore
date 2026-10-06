@@ -1,0 +1,5 @@
+# Exemption Trivy - decision documentee (06/10/2026)
+# CVE-2026-47884 (spring-webmvc 6.2.19) : exploitable uniquement avec XsltView et un mapping /**.
+# Notre application n'utilise ni l'un ni l'autre. Correctif disponible seulement en 7.x.
+# A reevaluer : migration vers Spring Boot 4.x.
+CVE-2026-47884 exp:2026-12-31

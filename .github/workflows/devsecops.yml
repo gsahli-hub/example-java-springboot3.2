@@ -15,11 +15,11 @@ jobs:
           fetch-depth: 0   # historique complet, pour trouver aussi les anciens secrets
       - name: Gitleaks
         run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect \
-          --source /repo --verbose \
-          --gitleaks-ignore-path /repo/.gitleaksignore \
-          --report-format json \
-          --report-path /repo/gitleaks-report.json --exit-code 1
+          docker run --rm -v "$PWD:/work" -v "$HOME/.m2:/root/.m2" \
+          aquasec/trivy:latest fs \
+          --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+          --ignorefile /work/.trivyignore \
+          --format json --output /work/trivy-sca.json /work
       - name: Publier le rapport
         if: always()
         uses: actions/upload-artifact@v4
