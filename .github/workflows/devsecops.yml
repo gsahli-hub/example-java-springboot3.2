@@ -71,9 +71,57 @@ jobs:
           name: rapport-trivy-sca
           path: trivy-sca.json
 
+  # ---------- Scan de l'image Docker (Trivy) : bloquant si HIGH ou CRITICAL corrigeable ----------
+  docker_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire l'image
+        run: docker build -t demo-api:ci .
+      - name: Trivy (image)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            --ignorefile /work/.trivyignore \
+            --format json --output /work/trivy-image.json demo-api:ci
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-trivy-image
+          path: trivy-image.json
+
+  # ---------- DAST (OWASP ZAP) sur l'application lancée ----------
+  dast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire et lancer l'application
+        run: |
+          docker build -t demo-api:ci .
+          docker run -d --name app -p 8081:8081 demo-api:ci
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:8081/health && break
+            sleep 2
+          done
+          curl -f http://localhost:8081/health || (docker logs app; exit 1)
+      - name: ZAP baseline
+        run: |
+          chmod 777 "$PWD"
+          docker run --rm --network host -v "$PWD:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://localhost:8081 -r zap-report.html -I
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-zap
+          path: zap-report.html
+
   # ---------- Passage en production : possible seulement si tout est vert ----------
   deploy:
-    needs: [secrets_scan, sast, scan_dependencies]
+    needs: [secrets_scan, sast, scan_dependencies, docker_scan, dast]
     runs-on: ubuntu-latest
     steps:
       - run: echo "Tous les contrôles sont passés, déploiement autorisé."
