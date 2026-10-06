@@ -109,15 +109,19 @@ jobs:
       - name: ZAP baseline
         run: |
           chmod 777 "$PWD"
-          docker run --rm --network host -v "$PWD:/zap/wrk/:rw" \
-            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-            -t http://localhost:8081 -r zap-report.html -I
+          i=0
+          for ep in "/hello?name=test" "/ping" "/hash?input=test"; do
+            i=$((i+1))
+            docker run --rm --network host -v "$PWD:/zap/wrk/:rw" \
+              ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+              -t "http://localhost:8081$ep" -r "zap-report-$i.html" -I
+          done
       - name: Publier le rapport
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rapport-zap
-          path: zap-report.html
+          path: zap-report-*.html
 
   # ---------- Passage en production : possible seulement si tout est vert ----------
   deploy:
