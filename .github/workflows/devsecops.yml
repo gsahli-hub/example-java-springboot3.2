@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Droits minimaux : aucun job n'a besoin d'écrire dans le dépôt
+permissions:
+  contents: read
+
 jobs:
   # ---------- Détection de secrets (Gitleaks) : bloquant ----------
   secrets_scan:
@@ -70,6 +74,16 @@ jobs:
         with:
           name: rapport-trivy-sca
           path: trivy-sca.json
+      # Non bloquant : les vulnérabilités MEDIUM sont affichées dans le journal
+      # sans faire échouer le build (exit-code 0)
+      - name: Trivy (avertissements MEDIUM, non bloquant)
+        if: always()
+        run: |
+          docker run --rm -v "$PWD:/work" -v "$HOME/.m2:/root/.m2" \
+            aquasec/trivy:latest fs \
+            --scanners vuln --severity MEDIUM --exit-code 0 \
+            --ignorefile /work/.trivyignore \
+            /work
 
   # ---------- Scan de l'image Docker (Trivy) : bloquant si HIGH ou CRITICAL corrigeable ----------
   docker_scan:
@@ -92,7 +106,7 @@ jobs:
           name: rapport-trivy-image
           path: trivy-image.json
 
-  # ---------- DAST (OWASP ZAP) sur l'application lancée ----------
+  # ---------- DAST (OWASP ZAP) sur l'application lancée : non bloquant (scan passif) ----------
   dast:
     runs-on: ubuntu-latest
     steps:
@@ -123,9 +137,10 @@ jobs:
           name: rapport-zap
           path: zap-report-*.html
 
-  # ---------- Passage en production : possible seulement si tout est vert ----------
+  # ---------- Passage en production : seulement sur main et si tout est vert ----------
   deploy:
     needs: [secrets_scan, sast, scan_dependencies, docker_scan, dast]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - run: echo "Tous les contrôles sont passés, déploiement autorisé."
