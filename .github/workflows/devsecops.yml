@@ -1,0 +1,68 @@
+name: DevSecOps
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # ---------- Détection de secrets (Gitleaks) : bloquant ----------
+  secrets_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # historique complet, pour trouver aussi les anciens secrets
+      - name: Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect \
+            --source /repo --report-format json \
+            --report-path /repo/gitleaks-report.json --exit-code 1
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-gitleaks
+          path: gitleaks-report.json
+
+  # ---------- SAST (Semgrep) : bloquant si sévérité ERROR ----------
+  sast:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep
+        run: |
+          semgrep scan --config p/java --config p/owasp-top-ten \
+            --severity ERROR --error --json --output semgrep-report.json
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-semgrep
+          path: semgrep-report.json
+
+  # ---------- SCA (Trivy) : bloquant si HIGH ou CRITICAL ----------
+  scan_dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy (dépendances)
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:latest fs \
+            --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+            --format json --output /work/trivy-sca.json /work
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-trivy-sca
+          path: trivy-sca.json
+
+  # ---------- Passage en production : possible seulement si tout est vert ----------
+  deploy:
+    needs: [secrets_scan, sast, scan_dependencies]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Tous les contrôles sont passés, déploiement autorisé."
