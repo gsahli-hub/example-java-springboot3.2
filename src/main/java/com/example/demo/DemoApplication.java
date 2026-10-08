@@ -22,7 +22,7 @@ public class DemoApplication {
     @GetMapping("/")
     public Map<String, String> hello() {
         return Map.of(
-            "message", "hello",
+            "message", "hello ghofrane",
             "framework", "Spring Boot",
             "version", "3.2.0",
             "java", System.getProperty("java.version"),
